@@ -63,9 +63,11 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	selected := runFzf(videos, cmd.Int(FlagSearchLimit), query)
 	if selected == -2 {
 		gophertubeYouTubeMode(cmd) // go back to search
+		return
 	}
 	if selected < 0 || selected >= len(videos) {
 		gophertubeYouTubeMode(cmd)
+		return
 	}
 
 	// Show Watch/Download menu
