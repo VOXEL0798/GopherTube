@@ -25,7 +25,6 @@ func New() cli.Command {
 			"KrishnaSSH <krishna.pytech@gmail.com>",
 		},
 		Usage:       "Terminal YouTube Search & Play",
-		UsageText:   "GopherTube [options]",
 		Description: Desc,
 		Flags:       Flags(),
 		Version:     version,
@@ -51,11 +50,12 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 		action.Stdin = strings.NewReader(strings.Join(mainMenu, "\n"))
 		out, _ := action.Output()
 		choice := strings.TrimSpace(string(out))
-		if choice == "Search YouTube" {
+		switch choice {
+		case "Search YouTube":
 			gophertubeYouTubeMode(cmd)
-		} else if choice == "Search Downloads" {
+		case "Search Downloads":
 			gophertubeDownloadsMode(cmd)
-		} else {
+		default:
 			return nil
 		}
 	}
