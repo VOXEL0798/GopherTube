@@ -14,7 +14,7 @@ sha256sums=('')
 build() {
   cd "$srcdir/GopherTube-$pkgver"
   export CGO_ENABLED=0
-  go build -ldflags "-X main.version=$pkgver" -o gophertube main.go
+  go build -ldflags "-X gophertube/internal/app.version=$pkgver" -o gophertube main.go
 }
 
 package() {
@@ -23,4 +23,4 @@ package() {
   install -Dm644 man/gophertube.1 "$pkgdir/usr/share/man/man1/gophertube.1"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 config/gophertube.toml "$pkgdir/usr/share/doc/$pkgname/gophertube.toml.example"
-} 
+}
