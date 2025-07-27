@@ -125,7 +125,7 @@ Create `~/.config/gophertube/gophertube.toml`:
 
 ```toml
 search_limit = 30
-quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p)
+quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p, Audio)
 downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
 ```
 
