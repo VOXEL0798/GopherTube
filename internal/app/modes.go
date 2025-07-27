@@ -77,7 +77,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	out, _ := action.Output()
 	choice := strings.TrimSpace(string(out))
 	if choice == "Download" {
-		qualities := []string{"1080p", "720p", "480p", "360p"}
+		qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
 		actionQ := exec.Command("fzf", "--prompt=Quality: ")
 		actionQ.Stdin = strings.NewReader(strings.Join(qualities, "\n"))
 		outQ, _ := actionQ.Output()
@@ -94,6 +94,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
 			case "360p":
 				format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+			case "Audio":
+				format = "bestaudio"
 			}
 			os.MkdirAll(cmd.String(FlagDownloadsPath), 0755)
 			// Sanitize filename
@@ -106,7 +108,15 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			}, filename)
 			outputPath := fmt.Sprintf("%s/%s.%%(ext)s", cmd.String(FlagDownloadsPath), filename)
 			fmt.Printf("    \033[1;32mDownloading '%s' as %s...\033[0m\n", videos[selected].Title, selectedQ)
+
 			ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
+
+			//override the default args with an audio only version
+			// Note: this downlads it as a .webm, then converts it to a .opus file.
+			if format == "bestaudio" {
+				print("audiocalleddebug")
+				ytDlpArgs = []string{"-x", "-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
+			}
 			actionDl := exec.Command("yt-dlp", ytDlpArgs...)
 			actionDl.Stdout = os.Stdout
 			actionDl.Stderr = os.Stderr
@@ -147,6 +157,9 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
 		case "360p":
 			format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+		case "Audio":
+			format = "bestaudio"
+			mpvArgs = append(mpvArgs, "--no-video")
 		default:
 			format = "best"
 		}
