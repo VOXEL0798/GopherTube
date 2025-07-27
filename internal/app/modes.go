@@ -111,10 +111,9 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 
 			ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 
-			//override the default args with an audio only version
+			//override the default args with an audio only version.
 			// Note: this downlads it as a .webm, then converts it to a .opus file.
 			if format == "bestaudio" {
-				print("audiocalleddebug")
 				ytDlpArgs = []string{"-x", "-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 			}
 			actionDl := exec.Command("yt-dlp", ytDlpArgs...)
