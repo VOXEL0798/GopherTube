@@ -44,7 +44,7 @@ install_deps() {
 build_install() {
     print_status "Building GopherTube..."
     
-    [ ! -d "GopherTube" ] && git clone https://github.com/KrishnaSSH/GopherTube.git
+    [ ! -d "GopherTube" ] && git clone --depth=1 https://github.com/KrishnaSSH/GopherTube.git
     cd GopherTube
     
     go mod download
