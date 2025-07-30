@@ -17,25 +17,32 @@ type MediaPlayer struct {
 	Type string // "video" or "audio"
 }
 
-// checkAvailablePlayer checks for VLC or MPV and returns the first available one
+// checkAvailablePlayer checks for MPV first, then VLC as fallback
 func checkAvailablePlayer() *MediaPlayer {
-	players := []string{"mpv", "vlc"}
-	
-	for _, player := range players {
-		if path, err := exec.LookPath(player); err == nil {
-			return &MediaPlayer{
-				Name: player,
-				Path: path,
-				Type: "video",
-			}
+	// Prefer MPV for better performance and terminal integration
+	if path, err := exec.LookPath("mpv"); err == nil {
+		return &MediaPlayer{
+			Name: "mpv",
+			Path: path,
+			Type: "video",
 		}
 	}
+	
+	// Fallback to VLC if MPV not available
+	if path, err := exec.LookPath("vlc"); err == nil {
+		return &MediaPlayer{
+			Name: "vlc",
+			Path: path,
+			Type: "video",
+		}
+	}
+	
 	return nil
 }
 
-// checkAvailableAudioPlayer checks for terminal-based audio players
+// checkAvailableAudioPlayer checks for MPV first for audio playback
 func checkAvailableAudioPlayer() *MediaPlayer {
-	// First check for mpv
+	// Prefer MPV for audio - excellent terminal integration and performance
 	if path, err := exec.LookPath("mpv"); err == nil {
 		return &MediaPlayer{
 			Name: "mpv",
@@ -44,7 +51,7 @@ func checkAvailableAudioPlayer() *MediaPlayer {
 		}
 	}
 	
-	// Fallback to VLC if mpv not available
+	// Fallback to VLC if MPV not available
 	if path, err := exec.LookPath("vlc"); err == nil {
 		return &MediaPlayer{
 			Name: "vlc",
@@ -57,40 +64,63 @@ func checkAvailableAudioPlayer() *MediaPlayer {
 }
 
 // playWithPlayer plays media using the detected player
-func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool, isFullscreen bool) error {
+func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
 	var args []string
 	
 	switch player.Name {
-
 	case "mpv":
 		if player.Type == "audio" || isAudioOnly {
-			args = []string{"--no-video"}
+			args = []string{
+				"--no-video",
+				
+			}
 		} else {
-			args = []string{"--no-terminal"}
-			if isFullscreen {
-				args = append(args, "--fullscreen")
- 			}
+			args = []string{
+				"--no-terminal",
+				"--hwdec=auto", // Enable hardware decoding
+				"--vo=gpu",     // Use GPU video output
+				"--quiet",      // Reduce messages but keep controls
+			}
 		}
 		args = append(args, url)
 	
-			
 	case "vlc":
 		if player.Type == "audio" || isAudioOnly {
-			// VLC in audio-only mode
-			args = []string{"--play-and-exit", "--no-video", "--no-video-title-show"}
+			// VLC in audio-only mode with interface suppression
+			args = []string{
+				"--intf", "dummy",           // Use dummy interface (no GUI)
+				"--play-and-exit",
+				"--no-video",
+				"--no-video-title-show",
+				"--quiet",                   // Reduce verbosity
+				"--no-sout-video",          // Disable video output
+			}
 		} else {
-			// VLC in video mode
-			args = []string{"--play-and-exit", "--no-video-title-show"}
-			if isFullscreen {
-				args = append(args, "--fullscreen")
+			// VLC in video mode with better error handling
+			args = []string{
+				"--play-and-exit",
+				"--no-video-title-show",
+				"--quiet",                   // Reduce error messages
+				"--avcodec-hw=any",         // Enable hardware decoding
+				"--no-audio-time-stretch",  // Prevent audio sync issues
+				"--clock-jitter=0",         // Reduce timing issues
+				"--network-caching=1000",   // Increase network buffer
+				"--file-caching=1000",      // Increase file buffer
 			}
 		}
 		args = append(args, url)
 	}
+	
 	cmd := exec.Command(player.Path, args...)
-	cmd.Stdin = os.Stdin
+	if player.Name == "vlc" {
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+} else {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+}
+
+	
 	return cmd.Run()
 }
 
@@ -205,7 +235,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	player := checkAvailablePlayer()
 	if player == nil {
 		fmt.Println("    \033[1;31mNo media player found!\033[0m")
-		fmt.Println("    \033[0;37mPlease install VLC or MPV to play videos.\033[0m")
+		fmt.Println("    \033[0;37mPlease install MPV (recommended) or VLC to play videos.\033[0m")
+		fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
 		fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 		os.Stdin.Read(make([]byte, 1))
 		gophertubeYouTubeMode(cmd)
@@ -218,7 +249,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		audioPlayer := checkAvailableAudioPlayer()
 		if audioPlayer == nil {
 			fmt.Println("    \033[1;31mNo audio player found!\033[0m")
-			fmt.Println("    \033[0;37mPlease install mpv, mplayer, or vlc to play audio.\033[0m")
+			fmt.Println("    \033[0;37mPlease install MPV (recommended) or VLC to play audio.\033[0m")
+			fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
 			fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 			os.Stdin.Read(make([]byte, 1))
 			gophertubeYouTubeMode(cmd)
@@ -236,13 +268,13 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		case "mpv":
 			fmt.Println("    \033[0;33mControls: 'q' to quit, SPACE to pause/resume, ←→ to seek\033[0m")
 		case "vlc":
-			fmt.Println("    \033[0;33mControls: Ctrl+C to quit, SPACE to pause/resume\033[0m")
+			fmt.Println("    \033[0;33mControls: Ctrl+C to quit (VLC has limited terminal controls)\033[0m")
 		}
 		
 		fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
 		
-		// Extract direct audio stream URL
-		audioCmd := exec.Command("yt-dlp", "-f", "bestaudio", "-g", videos[selected].URL)
+		// Extract direct audio stream URL with better format selection
+		audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
 		streamURLBytes, err := audioCmd.Output()
 		if err != nil {
 			fmt.Println("    \033[1;31mFailed to get direct audio URL.\033[0m")
@@ -255,11 +287,11 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		streamURL := strings.TrimSpace(string(streamURLBytes))
 		
 		// Play audio with detected terminal player
-		if err := playWithPlayer(audioPlayer, streamURL, true, false); err != nil {
+		if err := playWithPlayer(audioPlayer, streamURL, true); err != nil {
 			fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", audioPlayer.Name)
 		}
 		
-		fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+		fmt.Println("    \033[0;37mPress Enter to return.\033[0m")
 		os.Stdin.Read(make([]byte, 1))
 		gophertubeYouTubeMode(cmd)
 		return
@@ -274,8 +306,15 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	quality := cmd.String(FlagQuality)
 	isAudioOnly := quality == "Audio"
 	
-	// Extract direct streamable URL using yt-dlp
-	ytDlpCmd := exec.Command("yt-dlp", "-f", "best", "-g", videos[selected].URL)
+	// Extract direct streamable URL using yt-dlp with better format selection
+	var ytDlpCmd *exec.Cmd
+	if isAudioOnly {
+		ytDlpCmd = exec.Command("yt-dlp", "-f", "bestaudio", "-g", videos[selected].URL)
+	} else {
+		// Try to get the best video format that's compatible
+		ytDlpCmd = exec.Command("yt-dlp", "-f", "best[height<=1080]/best", "-g", videos[selected].URL)
+	}
+	
 	streamURLBytes, err := ytDlpCmd.Output()
 	if err != nil {
 		fmt.Println("    \033[1;31mFailed to get direct video URL.\033[0m")
@@ -285,7 +324,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	streamURL := strings.TrimSpace(string(streamURLBytes))
 	
 	// Play with detected player
-	if err := playWithPlayer(player, streamURL, isAudioOnly, true); err != nil {
+	if err := playWithPlayer(player, streamURL, isAudioOnly); err != nil {
 		fmt.Printf("    \033[1;31mFailed to play video with %s.\033[0m\n", player.Name)
 	}
 }
@@ -327,7 +366,8 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 	player := checkAvailablePlayer()
 	if player == nil {
 		fmt.Println("    \033[1;31mNo media player found!\033[0m")
-		fmt.Println("    \033[0;37mPlease install VLC or MPV to play videos.\033[0m")
+		fmt.Println("    \033[0;37mPlease install MPV (recommended) or VLC to play videos.\033[0m")
+		fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
 		fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 		os.Stdin.Read(make([]byte, 1))
 		return
@@ -338,7 +378,7 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 	fmt.Println("\n    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
 	
 	// Play with detected player
-	if err := playWithPlayer(player, filePath, false, false); err != nil {
+	if err := playWithPlayer(player, filePath, false); err != nil {
 		fmt.Printf("    \033[1;31mFailed to play video with %s.\033[0m\n", player.Name)
 	}
 }
