@@ -110,5 +110,10 @@ build_install() {
     print_status "GopherTube installed successfully!"
 }
 
-install_deps
+### BEGIN COMMAND EXECUTION
+installer="$(identify_installer)"
+identify_missing_dependencies "${installer}"
+if [[ ${#missing_deps} -gt 0 ]]; then
+  install_deps "${installer}"
+fi
 build_install
