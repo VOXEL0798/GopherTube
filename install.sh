@@ -7,8 +7,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-print_status() { echo -e "${GREEN}[INFO]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+print_status() { echo -e "${GREEN}[INFO]${NC} $*"; }
+print_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 missing_deps=()
 supported_installers=(apt-get pacman dnf yum zypper brew pkg apk)
 
