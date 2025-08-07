@@ -32,20 +32,19 @@ func checkAvailablePlayer() *MediaPlayer {
 // playWithPlayer plays media using the detected player.
 func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
 	var args []string
-	
+
 	if isAudioOnly {
 		args = []string{"--no-video"}
 	}
-	
+
 	args = append(args, url)
-	
+
 	cmd := exec.Command(player.Path, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	return cmd.Run()
 }
-
 
 func gophertubeYouTubeMode(cmd *cli.Command) {
 	query, esc := readQuery()
@@ -112,7 +111,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			action.Stdin = strings.NewReader(strings.Join(menu, "\n"))
 			out, _ := action.Output()
 			choice := strings.TrimSpace(string(out))
-			
+
 			if choice == "Download" {
 				qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
 				actionQ := exec.Command("fzf", "--prompt=Quality: ")
@@ -169,7 +168,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				gophertubeYouTubeMode(cmd)
 				return
 			}
-			
+
 			// New Audio playback logic
 			if choice == "Audio" {
 				player := checkAvailablePlayer()
@@ -181,7 +180,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
 				}
-				
+
 				fmt.Printf("    \033[1;33mPlaying Audio with %s: %s\033[0m\n", strings.ToUpper(player.Name), videos[selected].Title)
 				fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
 				fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
@@ -189,7 +188,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
 				fmt.Println("    \033[0;33mControls: 'q' to quit, SPACE to pause/resume, ←→ to seek\033[0m")
 				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
-				
+
 				// Extract direct audio stream URL
 				audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
 				streamURLBytes, err := audioCmd.Output()
@@ -201,11 +200,11 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 					continue // Go back to the search results
 				}
 				streamURL := strings.TrimSpace(string(streamURLBytes))
-				
+
 				if err := playWithPlayer(player, streamURL, true); err != nil {
 					fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", player.Name)
 				}
-				
+
 				fmt.Println("    \033[0;37mPress Enter to return.\033[0m")
 				os.Stdin.Read(make([]byte, 1))
 				continue // Return to the search results
@@ -222,26 +221,29 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			mpvPath := "mpv"
 			quality := cmd.String(FlagQuality)
 			var mpvArgs []string
+
+			// Add the fullscreen flag for video playback
+			mpvArgs = append(mpvArgs, "--fs")
+
 			if quality != "" {
 				// Map quality to ytdl-format string
-				var format string
 				switch quality {
 				case "1080p":
-					format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=1080]+bestaudio/best[height<=1080]")
 				case "720p":
-					format = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=720]+bestaudio/best[height<=720]")
 				case "480p":
-					format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=480]+bestaudio/best[height<=480]")
 				case "360p":
-					format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=360]+bestaudio/best[height<=360]")
 				case "Audio":
-					format = "bestaudio"
 					mpvArgs = append(mpvArgs, "--no-video")
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"bestaudio")
 				default:
-					format = "best"
+					mpvArgs = append(mpvArgs, "--ytdl-format="+"best")
 				}
-				mpvArgs = append(mpvArgs, "--ytdl-format="+format)
 			}
+
 			mpvArgs = append(mpvArgs, videos[selected].URL)
 			exec.Command(mpvPath, mpvArgs...).Run()
 			continue
