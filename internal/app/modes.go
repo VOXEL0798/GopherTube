@@ -106,7 +106,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
             }
 
             // Show Watch/Download/Audio menu
-            menu := []string{"Watch", "Download", "Audio"}
+            menu := []string{"Watch", "Download", "Listen"}
             action := exec.Command("fzf", "--prompt=Action: ")
             action.Stdin = strings.NewReader(strings.Join(menu, "\n"))
             out, _ := action.Output()
@@ -170,7 +170,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
             }
 
             // New Audio playback logic
-            if choice == "Audio" {
+            if choice == "Listen" {
                 player := checkAvailablePlayer()
                 if player == nil {
                     fmt.Println("    \033[1;31mNo media player found!\033[0m")
