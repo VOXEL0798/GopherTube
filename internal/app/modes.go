@@ -82,14 +82,14 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		fmt.Println()
 
 		if err != nil || len(videos) == 0 {
-			fmt.Println("    \033[1;31mNo results found.\033[0m")
+			fmt.Println("    \033[1;31mNo results found.\033[0m")
 			fmt.Println()
-			fmt.Println("    \033[0;37mPress any key to search again...\033[0m")
+			fmt.Println("    \033[0;37mPress any key to search again...\033[0m")
 			os.Stdin.Read(make([]byte, 1))
 			return
 		}
 
-		fmt.Printf("    \033[1;32mFound %d results!\033[0m\n", len(videos))
+		fmt.Printf("    \033[1;32mFound %d results!\033[0m\n", len(videos))
 		printSearchStats(videos)
 		printSearchTips()
 		// Reduced delay for faster response
@@ -143,7 +143,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 						return '_'
 					}, filename)
 					outputPath := fmt.Sprintf("%s/%s.%%(ext)s", cmd.String(FlagDownloadsPath), filename)
-					fmt.Printf("    \033[1;32mDownloading '%s' as %s...\033[0m\n", videos[selected].Title, selectedQ)
+					fmt.Printf("    \033[1;32mDownloading '%s' as %s...\033[0m\n", videos[selected].Title, selectedQ)
 
 					ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 
@@ -157,12 +157,12 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 					actionDl.Stderr = os.Stderr
 					err := actionDl.Run()
 					if err == nil {
-						fmt.Printf("    \033[1;32mDownload complete!\033[0m\n")
-						fmt.Printf("    \033[0;37mSaved to: %s\033[0m\n", cmd.String(FlagDownloadsPath))
+						fmt.Printf("    \033[1;32mDownload complete!\033[0m\n")
+						fmt.Printf("    \033[0;37mSaved to: %s\033[0m\n", cmd.String(FlagDownloadsPath))
 					} else {
-						fmt.Printf("    \033[1;31mDownload failed!\033[0m\n")
+						fmt.Printf("    \033[1;31mDownload failed!\033[0m\n")
 					}
-					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 					os.Stdin.Read(make([]byte, 1))
 				}
 				gophertubeYouTubeMode(cmd)
@@ -173,50 +173,50 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			if choice == "Audio" {
 				player := checkAvailablePlayer()
 				if player == nil {
-					fmt.Println("    \033[1;31mNo media player found!\033[0m")
-					fmt.Println("    \033[0;37mPlease install MPV to play audio.\033[0m")
-					fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
-					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+					fmt.Println("    \033[1;31mNo media player found!\033[0m")
+					fmt.Println("    \033[0;37mPlease install MPV to play audio.\033[0m")
+					fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
+					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
 				}
 
-				fmt.Printf("    \033[1;33mPlaying Audio with %s: %s\033[0m\n", strings.ToUpper(player.Name), videos[selected].Title)
-				fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
-				fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
-				fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
-				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
-				fmt.Println("    \033[0;33mControls: 'q' to quit, SPACE to pause/resume, ←→ to seek\033[0m")
-				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
+				fmt.Printf("    \033[1;33mPlaying Audio with %s: %s\033[0m\n", strings.ToUpper(player.Name), videos[selected].Title)
+				fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
+				fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
+				fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
+				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+				fmt.Println("    \033[0;33mControls: 'q' to quit, SPACE to pause/resume, ←→ to seek\033[0m")
+				fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
 
 				// Extract direct audio stream URL
 				audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
 				streamURLBytes, err := audioCmd.Output()
 				if err != nil {
-					fmt.Println("    \033[1;31mFailed to get direct audio URL.\033[0m")
-					fmt.Println("    \033[0;37mMake sure yt-dlp is installed.\033[0m")
-					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+					fmt.Println("    \033[1;31mFailed to get direct audio URL.\033[0m")
+					fmt.Println("    \033[0;37mMake sure yt-dlp is installed.\033[0m")
+					fmt.Println("    \033[0;37mPress any key to return...\033[0m")
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
 				}
 				streamURL := strings.TrimSpace(string(streamURLBytes))
 
 				if err := playWithPlayer(player, streamURL, true); err != nil {
-					fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", player.Name)
+					fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", player.Name)
 				}
 
-				fmt.Println("    \033[0;37mPress Enter to return.\033[0m")
+				fmt.Println("    \033[0;37mPress Enter to return.\033[0m")
 				os.Stdin.Read(make([]byte, 1))
 				continue // Return to the search results
 			}
 
 			// Watch as before
-			fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", videos[selected].Title)
-			fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
-			fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
-			fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
+			fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", videos[selected].Title)
+			fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
+			fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
+			fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
 			fmt.Println()
-			fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+			fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
 			fmt.Println()
 			mpvPath := "mpv"
 			quality := cmd.String(FlagQuality)
@@ -254,8 +254,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 func gophertubeDownloadsMode(cmd *cli.Command) {
 	files, err := os.ReadDir(cmd.String(FlagDownloadsPath))
 	if err != nil || len(files) == 0 {
-		fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
-		fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
+		fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
+		fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
 		os.Stdin.Read(make([]byte, 1))
 		return
 	}
@@ -266,8 +266,8 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 		}
 	}
 	if len(videoFiles) == 0 {
-		fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
-		fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
+		fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
+		fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
 		os.Stdin.Read(make([]byte, 1))
 		return
 	}
@@ -280,9 +280,9 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 		return
 	}
 	filePath := cmd.String(FlagDownloadsPath) + "/" + selected
-	fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", selected)
+	fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", selected)
 	fmt.Println()
-	fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+	fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
 	fmt.Println()
 	mpvPath := "mpv"
 	exec.Command(mpvPath, filePath).Run()
