@@ -105,13 +105,21 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				continue // Stay in the same list
 			}
 
+<<<<<<< HEAD
 			// Show Watch/Download/Audio menu
 			menu := []string{"Watch", "Download", "Audio"}
+=======
+			// Show Watch/Download menu
+			menu := []string{"Watch", "Download"}
+>>>>>>> upstream/main
 			action := exec.Command("fzf", "--prompt=Action: ")
 			action.Stdin = strings.NewReader(strings.Join(menu, "\n"))
 			out, _ := action.Output()
 			choice := strings.TrimSpace(string(out))
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/main
 			if choice == "Download" {
 				qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
 				actionQ := exec.Command("fzf", "--prompt=Quality: ")
@@ -169,6 +177,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				return
 			}
 
+<<<<<<< HEAD
 			// New Audio playback logic
 			if choice == "Audio" {
 				player := checkAvailablePlayer()
@@ -210,6 +219,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				continue // Return to the search results
 			}
 
+=======
+>>>>>>> upstream/main
 			// Watch as before
 			fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", videos[selected].Title)
 			fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
@@ -221,6 +232,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			mpvPath := "mpv"
 			quality := cmd.String(FlagQuality)
 			var mpvArgs []string
+<<<<<<< HEAD
 
 			// Add the fullscreen flag for video playback
 			mpvArgs = append(mpvArgs, "--fs")
@@ -244,6 +256,28 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				}
 			}
 
+=======
+			if quality != "" {
+				// Map quality to ytdl-format string
+				var format string
+				switch quality {
+				case "1080p":
+					format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+				case "720p":
+					format = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+				case "480p":
+					format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
+				case "360p":
+					format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+				case "Audio":
+					format = "bestaudio"
+					mpvArgs = append(mpvArgs, "--no-video")
+				default:
+					format = "best"
+				}
+				mpvArgs = append(mpvArgs, "--ytdl-format="+format)
+			}
+>>>>>>> upstream/main
 			mpvArgs = append(mpvArgs, videos[selected].URL)
 			exec.Command(mpvPath, mpvArgs...).Run()
 			continue
