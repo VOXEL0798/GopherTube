@@ -133,31 +133,63 @@ main() {
   ensure_cmd chafa "$pm" chafa chafa chafa chafa chafa chafa chafa
   ensure_yt_dlp "$pm"
 
-  # Build (always rebuild)
-  log "Building GopherTube..."
-  if [ -f go.mod ]; then
-    go mod download
+  # Determine latest version tag from GitHub
+  REPO_URL="https://github.com/KrishnaSSH/GopherTube.git"
+  LATEST_TAG=`git ls-remote --tags --refs "$REPO_URL" 2>/dev/null | awk -F/ '{print $NF}' | sort -V | tail -1`
+  if [ -z "$LATEST_TAG" ]; then
+    warn "Could not determine latest tag; falling back to 'main'"
+    LATEST_TAG="main"
   fi
-  go build -o gophertube ./
+
+  # If already installed at latest, skip rebuild
+  if has_cmd gophertube; then
+    INSTALLED_VER=`gophertube --version 2>/dev/null | grep -oE 'v[0-9]+(\.[0-9]+)*' | head -1 || true`
+    if [ -n "$INSTALLED_VER" ] && [ "$LATEST_TAG" = "$INSTALLED_VER" ]; then
+      log "Already on latest version ($INSTALLED_VER). Nothing to do."
+      exit 0
+    fi
+  fi
+
+  # Build latest in a temp directory
+  TMPDIR=`mktemp -d 2>/dev/null || mktemp -d -t gophertube`
+  trap 'rm -rf "$TMPDIR"' EXIT INT TERM
+  log "Building GopherTube (version: $LATEST_TAG)..."
+  git clone --depth=1 --branch "$LATEST_TAG" "$REPO_URL" "$TMPDIR/GopherTube" >/dev/null 2>&1 || {
+    warn "Clone failed; trying default branch"
+    git clone --depth=1 "$REPO_URL" "$TMPDIR/GopherTube" >/dev/null 2>&1 || { err "Failed to clone repository"; exit 1; }
+  }
+  (
+    cd "$TMPDIR/GopherTube"
+    if [ -f go.mod ]; then
+      go mod download
+    fi
+    # Embed version into binary when tag is semver; if not, use 'dev'
+    VFLAG="-X gophertube/internal/app.version=$LATEST_TAG"
+    case "$LATEST_TAG" in
+      v[0-9]*) : ;; # keep tag
+      *) VFLAG="-X gophertube/internal/app.version=dev" ;;
+    esac
+    go build -ldflags "$VFLAG" -o gophertube ./
+  )
 
   # Install
   log "Installing to ${PREFIX}"
   sudo mkdir -p "${PREFIX}/bin"
-  sudo cp -f gophertube "${PREFIX}/bin/"
+  sudo cp -f "$TMPDIR/GopherTube/gophertube" "${PREFIX}/bin/"
   sudo chmod +x "${PREFIX}/bin/gophertube"
 
   # Man page (optional)
-  if [ -f man/gophertube.1 ]; then
+  if [ -f "$TMPDIR/GopherTube/man/gophertube.1" ]; then
     sudo mkdir -p "${PREFIX}/share/man/man1"
-    sudo cp -f man/gophertube.1 "${PREFIX}/share/man/man1/"
+    sudo cp -f "$TMPDIR/GopherTube/man/gophertube.1" "${PREFIX}/share/man/man1/"
   fi
 
   # User config bootstrap (do not overwrite)
   cfg_dir="$HOME/.config/gophertube"
   cfg_file="$cfg_dir/gophertube.toml"
   mkdir -p "$cfg_dir"
-  if [ ! -f "$cfg_file" ] && [ -f config/gophertube.toml ]; then
-    cp config/gophertube.toml "$cfg_dir/"
+  if [ ! -f "$cfg_file" ] && [ -f "$TMPDIR/GopherTube/config/gophertube.toml" ]; then
+    cp "$TMPDIR/GopherTube/config/gophertube.toml" "$cfg_dir/"
   fi
 
   log "GopherTube installed successfully. Run: gophertube"
