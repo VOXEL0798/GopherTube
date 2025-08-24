@@ -11,17 +11,7 @@ import (
     "github.com/urfave/cli/v3"
 )
 
-// ANSI color/style helpers (centralized for readability)
-const (
-    colorReset  = "\033[0m"
-    colorRed    = "\033[1;31m"
-    colorGreen  = "\033[1;32m"
-    colorYellow = "\033[1;33m"
-    colorCyan   = "\033[1;36m"
-    colorWhite  = "\033[0;37m"
-
-    barMagenta = "\033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-)
+// ANSI colors and bar constants are defined in ui.go
 
 // sanitizeFilename converts a video title into a filesystem-safe filename.
 func sanitizeFilename(s string) string {
@@ -292,7 +282,7 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
         return
     }
     fzfPreview := buildDownloadsPreview(cmd.String(FlagDownloadsPath))
-    action := exec.Command("fzf", "--prompt=Downloads: ", "--preview", fzfPreview)
+    action := exec.Command("fzf", "--ansi", "--preview-window=wrap", "--prompt=Downloads: ", "--preview", fzfPreview)
     action.Stdin = strings.NewReader(strings.Join(videoFiles, "\n"))
     out, _ := action.Output()
     selected := strings.TrimSpace(string(out))

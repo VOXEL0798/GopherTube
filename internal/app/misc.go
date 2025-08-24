@@ -14,6 +14,36 @@ import (
 	"github.com/chzyer/readline"
 )
 
+// buildSearchHeader creates the colored fzf header for the search UI.
+func buildSearchHeader(resultCount int, query string) string {
+	return fmt.Sprintf(
+		"--header=%s↑/↓%s to move • %stype%s to search • %sEnter%s to select • %sTab%s to load more • %s%d results • %s%s%s",
+		colorCyan, colorReset,
+		colorYellow, colorReset,
+		colorGreen, colorReset,
+		colorMagenta, colorReset,
+		colorWhite, resultCount,
+		colorMagenta, query, colorReset,
+	)
+}
+
+// buildSearchPreview returns the shell for fzf --preview for search results.
+// It renders the thumbnail via chafa, pads to place the cursor below the image,
+// then prints colored metadata.
+func buildSearchPreview() string {
+	tpl := `sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * %d / %d)); h=$((FZF_PREVIEW_LINES * %d / %d)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; pad=$((FZF_PREVIEW_LINES - h - 1)); i=0; while [ $i -gt -1 ] && [ $i -lt $pad ]; do echo; i=$((i+1)); done; printf "%s%%s%s\n" "$title"; printf "%sDuration:%s %%s\n" "$3"; printf "%sPublished:%s %%s\n" "$4"; printf "%sAuthor:%s %%s\n" "$5"; printf "%sViews:%s %%s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`
+	return fmt.Sprintf(
+		tpl,
+		previewWidthNum, previewWidthDen,
+		previewHeightNum, previewHeightDen,
+		colorCyan, colorReset,
+		colorYellow, colorReset,
+		colorCyan, colorReset,
+		colorGreen, colorReset,
+		colorMagenta, colorReset,
+	)
+}
+
 func printBanner() {
 	fmt.Print("\033[2J\033[H")
 	fmt.Println()
@@ -185,15 +215,17 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 			fmt.Fprintf(&input, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", i, v.Title, thumbPath, v.Duration, v.Author, v.Views, v.Description, v.Published)
 		}
 		fzfArgs := []string{
+			"--ansi",
 			"--with-nth=2..2",
 			"--delimiter=\t",
-			fmt.Sprintf("--header=\033[1;36m↑/↓\033[0m to move • \033[1;33mtype\033[0m to search • \033[1;32mEnter\033[0m to select • \033[1;35mTab\033[0m to load more • \033[1;37m%d results • \033[1;35m%s\033[0m", len(videos), query),
+			buildSearchHeader(len(videos), query),
 			"--expect=tab",
 			"--bind=esc:abort",
-			"--border=rounded",
-			"--margin=1,1",
+			"--border=" + fzfBorder,
+			"--margin=" + fzfMargin,
+			"--preview-window=" + fzfPreviewWrap,
 			"--preview",
-			`sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%s\033[0m\n" "$title"; printf "\033[33mDuration:\033[0m %s\n" "$3"; printf "\033[36mPublished:\033[0m %s\n" "$4"; printf "\033[32mAuthor:\033[0m %s\n" "$5"; printf "\033[35mViews:\033[0m %s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`,
+			buildSearchPreview(),
 		}
 		if filter != "" {
 			fzfArgs = append(fzfArgs, "--query="+filter)
