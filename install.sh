@@ -128,6 +128,7 @@ main() {
 
   # Ensure dependencies ONLY if missing
   ensure_cmd go    "$pm" golang-go go go go go go go
+  ensure_cmd git   "$pm" git git git git git git git
   ensure_cmd mpv   "$pm" mpv mpv mpv mpv mpv mpv mpv
   ensure_cmd fzf   "$pm" fzf fzf fzf fzf fzf fzf fzf
   ensure_cmd chafa "$pm" chafa chafa chafa chafa chafa chafa chafa
@@ -154,6 +155,7 @@ main() {
   TMPDIR=`mktemp -d 2>/dev/null || mktemp -d -t gophertube`
   trap 'rm -rf "$TMPDIR"' EXIT INT TERM
   log "Building GopherTube (version: $LATEST_TAG)..."
+  export GIT_TERMINAL_PROMPT=0
   git clone --depth=1 --branch "$LATEST_TAG" "$REPO_URL" "$TMPDIR/GopherTube" >/dev/null 2>&1 || {
     warn "Clone failed; trying default branch"
     git clone --depth=1 "$REPO_URL" "$TMPDIR/GopherTube" >/dev/null 2>&1 || { err "Failed to clone repository"; exit 1; }
