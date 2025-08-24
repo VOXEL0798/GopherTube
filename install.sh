@@ -1,156 +1,166 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
-set -e
+set -eu
 
-# Colors
+# --------------------------------------
+# GopherTube Installer (POSIX)
+# --------------------------------------
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-NC='\033[0m'
+YELLOW='\033[0;33m'
+NC="\033[0m"
 
-print_status() { echo -e "${GREEN}[INFO]${NC} $*"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-missing_deps=()
-supported_installers=(apt-get pacman dnf yum zypper brew pkg apk)
+log()  { printf "%b\n" "${GREEN}[INFO]${NC} $*"; }
+warn() { printf "%b\n" "${YELLOW}[WARN]${NC} $*"; }
+err()  { printf "%b\n" "${RED}[ERROR]${NC} $*"; }
 
-# Utility function to identify if a command exists.
-command_exists() {
-    if command -v "${1}" >/dev/null; then
-        return 1
-    fi
+PREFIX=${PREFIX:-/usr/local}
+
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+detect_pm() {
+  for pm in apt-get apt dnf yum zypper pacman apk brew pkg; do
+    if has_cmd "$pm"; then echo "$pm"; return 0; fi
+  done
+  err "No supported package manager found. Please install dependencies manually."; exit 1
+}
+
+# Install a single package name with the chosen PM
+pm_install_one() {
+  pm="$1"; pkg="$2"
+  case "$pm" in
+    apt-get|apt)
+      sudo "$pm" update -y >/dev/null 2>&1 || true
+      sudo "$pm" install -y "$pkg"
+      ;;
+    dnf|yum)
+      sudo "$pm" install -y "$pkg"
+      ;;
+    zypper)
+      sudo zypper install -y "$pkg"
+      ;;
+    pacman)
+      sudo pacman -S --noconfirm --needed "$pkg"
+      ;;
+    apk)
+      sudo apk add --no-progress "$pkg"
+      ;;
+    brew)
+      brew install "$pkg"
+      ;;
+    pkg)
+      sudo pkg install -y "$pkg"
+      ;;
+    *)
+      err "Unsupported package manager: $pm"; exit 1
+      ;;
+  esac
+}
+
+# ensure_cmd <cmd> <pm> <apt_pkg> <dnf_pkg> <pacman_pkg> <zypper_pkg> <apk_pkg> <brew_pkg> <pkg_pkg>
+ensure_cmd() {
+  cmd="$1"; pm="$2"; apt_pkg="$3"; dnf_pkg="$4"; pacman_pkg="$5"; zypper_pkg="$6"; apk_pkg="$7"; brew_pkg="$8"; pkg_pkg="$9"
+  if has_cmd "$cmd"; then
+    log "$cmd already present. Skipping installation."
     return 0
+  fi
+  pkg=""
+  case "$pm" in
+    apt-get|apt) pkg="$apt_pkg" ;;
+    dnf|yum)     pkg="$dnf_pkg" ;;
+    pacman)      pkg="$pacman_pkg" ;;
+    zypper)      pkg="$zypper_pkg" ;;
+    apk)         pkg="$apk_pkg" ;;
+    brew)        pkg="$brew_pkg" ;;
+    pkg)         pkg="$pkg_pkg" ;;
+  esac
+  if [ -n "$pkg" ]; then
+    log "Installing missing dependency: $cmd ($pkg)"
+    pm_install_one "$pm" "$pkg"
+  else
+    warn "No package mapping for $cmd on $pm. Please install it manually."
+  fi
 }
 
-# Determine which (if any) dependencies are missing so they can
-# be selectively installed.
-identify_missing_dependencies() {
-    _installer="${1}"
-    dependencies=(go mpv fzf chafa yt-dlp)
-    case "${_installer}" in
-        "apt-get"|"zypper"|"dnf"|"yum")
-            dependencies+=("python3-pip")
-            #break
-            ;;
-        "pkg")
-            dependencies[${#dependencies[@]-1}]="py39-yt-dlp"
-            #break
-            ;;
-        "apk")
-            dependencies[${#dependencies[@]-1}]="py3-yt-dlp"
-            #break
-            ;;
+ensure_yt_dlp() {
+  pm="$1"
+  if has_cmd yt-dlp; then
+    log "yt-dlp already present. Skipping installation."
+    return 0
+  fi
+  # Try native package first
+  case "$pm" in
+    apt-get|apt|dnf|yum|zypper|pacman|apk|brew)
+      log "Installing yt-dlp via package manager"
+      pm_install_one "$pm" yt-dlp || true
+      ;;
+    pkg)
+      pm_install_one "$pm" py39-yt-dlp || true
+      ;;
+  esac
+  if has_cmd yt-dlp; then return 0; fi
+  # Fallback to pip (user install). Do not upgrade if present; only install if missing.
+  if ! has_cmd pip3; then
+    log "pip3 not found. Installing minimal pip3..."
+    case "$pm" in
+      apt-get|apt) pm_install_one "$pm" python3-pip;;
+      dnf|yum)     pm_install_one "$pm" python3-pip;;
+      zypper)      pm_install_one "$pm" python3-pip;;
+      apk)         pm_install_one "$pm" py3-pip;;
+      pacman)      pm_install_one "$pm" python-pip;;
+      brew)        warn "Install pip3 manually or ensure yt-dlp via brew.";;
+      pkg)         pm_install_one "$pm" py39-pip || pm_install_one "$pm" python3;;
     esac
-    for d in "${dependencies[@]}"; do
-        if command_exists "${d}"; then
-            missing_deps+=("${d}")
-        fi
-    done
+  fi
+  if has_cmd pip3; then
+    log "Installing yt-dlp via pip3 (user)"
+    pip3 install --user yt-dlp || true
+    hash -r 2>/dev/null || true
+  else
+    warn "pip3 not available. Please install yt-dlp manually."
+  fi
 }
 
-# Which installer should be used? Used for installing and resolving
-# some package names
-identify_installer() {
-    for si in "${supported_installers[@]}"; do
-        command -v "${si}" >/dev/null && { echo "${si}"; return; }
-    done
-}
+main() {
+  pm=`detect_pm`
+  log "Detected package manager: $pm"
 
-# Install dependencies
-install_deps() {
-    installer="${1}"
-    print_status "Installing missing dependencies..."
-    case "${1}" in
-        "apt-get")
-            sudo "${installer}" update
-            ;;
-        "zypper"|"dnf"|"yum")
-            sudo "${installer}" install -y "${missing_deps[@]}"
-            pip3 install -U yt-dlp
-            return
-            ;;
-        "pacman")
-            sudo "${installer}" -S --noconfirm "${missing_deps[@]}"
-            return
-            ;;
-        "brew")
-            "${installer}" install "${missing_deps[@]}"
-            return
-            ;;
-        "pkg")
-            sudo "${installer}" install -y "${missing_deps[@]}"
-            return
-            ;;
-        "apk")
-            sudo "${installer}" add "${missing_deps[@]}"
-            return
-            ;;
-        *)
-            print_error "Unsupported package manager. Please perform manual installation."
-            exit 1
-            ;;
-    esac
-}
+  # Ensure dependencies ONLY if missing
+  ensure_cmd go    "$pm" golang-go go go go go go go
+  ensure_cmd mpv   "$pm" mpv mpv mpv mpv mpv mpv mpv
+  ensure_cmd fzf   "$pm" fzf fzf fzf fzf fzf fzf fzf
+  ensure_cmd chafa "$pm" chafa chafa chafa chafa chafa chafa chafa
+  ensure_yt_dlp "$pm"
 
-# Build gophertube program
-build_gt() {
-    if ! command_exists gophertube && [[ "${FORCE_BUILD:0}" -ne 1 ]]; then
-        print_status "'gophertube' is already installed. Skipping build and installation."
-        print_status "To force installation, set 'FORCE_BUILD' environment vairable to '1' and re-run install script."
-        return 1
-    fi
-    print_status "Building GopherTube..."
-
-    repo_needs_cloning=0
-    # Are we in the repo?
-    git_top_dir="$(git rev-parse --show-toplevel)"
-    rev_parse_return_code=$?
-    if [[ "${rev_parse_return_code}" -ne 0 ]]; then
-        >&2 echo "Not currently in a git repository"
-        repo_needs_cloning=1
-    elif [[ "${PWD}" != "${git_top_dir}" ]]; then
-        >&2 echo "Not in top level of git repository. Changing directory"
-        cd "${git_top_dir}"
-    else
-        >&2 echo "In top level of git directory"
-    fi
-    # Is this the right repo?
-    if [[  -f "go.mod" && "$(head -1 go.mod)" == "module gophertube" ]]; then
-        >&2 echo "Did not find 'go.mod' file for gophertube."
-        repo_needs_cloning=1
-    fi
-    if [[ "${repo_needs_cloning}" -eq 1 ]]; then
-        if [[ -d "GopherTube" ]]; then
-            cd GopherTube
-            git pull https://github.com/KrishnaSSH/GopherTube.git
-        else
-            git clone --depth=1 https://github.com/KrishnaSSH/GopherTube.git
-            cd GopherTube
-        fi
-    fi
-
+  # Build (always rebuild)
+  log "Building GopherTube..."
+  if [ -f go.mod ]; then
     go mod download
-    go build -o gophertube . && return 0
-    return 1
+  fi
+  go build -o gophertube ./
+
+  # Install
+  log "Installing to ${PREFIX}"
+  sudo mkdir -p "${PREFIX}/bin"
+  sudo cp -f gophertube "${PREFIX}/bin/"
+  sudo chmod +x "${PREFIX}/bin/gophertube"
+
+  # Man page (optional)
+  if [ -f man/gophertube.1 ]; then
+    sudo mkdir -p "${PREFIX}/share/man/man1"
+    sudo cp -f man/gophertube.1 "${PREFIX}/share/man/man1/"
+  fi
+
+  # User config bootstrap (do not overwrite)
+  cfg_dir="$HOME/.config/gophertube"
+  cfg_file="$cfg_dir/gophertube.toml"
+  mkdir -p "$cfg_dir"
+  if [ ! -f "$cfg_file" ] && [ -f config/gophertube.toml ]; then
+    cp config/gophertube.toml "$cfg_dir/"
+  fi
+
+  log "GopherTube installed successfully. Run: gophertube"
 }
 
-# Install gophertube and man page under "${PREFIX}"
-install_gt() {
-    PREFIX="${PREFIX:-/usr/local}"
-    print_status "Installing files under '${PREFIX}'"
-    [[ 1 -gt 0 ]] && return
-    sudo cp gophertube "${PREFIX}"/bin/
-    sudo mkdir -p "${PREFIX}"/share/man/man1
-    sudo cp man/gophertube.1 "${PREFIX}"/share/man/man1/ 2>/dev/null || true
-
-    [[ ! -d "${HOME}"/.config/gophertube ]] && mkdir -p "${HOME}"/.config/gophertube
-    [[ ! -f "${HOME}"/.config/gophertube ]] && cp config/gophertube.toml "${HOME}"/.config/gophertube/ 2>/dev/null
-
-    print_status "GopherTube installed successfully!"
-}
-
-### BEGIN COMMAND EXECUTION
-installer="$(identify_installer)"
-identify_missing_dependencies "${installer}"
-if [[ ${#missing_deps} -gt 0 ]]; then
-  install_deps "${installer}"
-fi
-build_gt && install_gt
+main "$@"
