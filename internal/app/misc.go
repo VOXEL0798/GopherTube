@@ -193,7 +193,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 			"--border=rounded",
 			"--margin=1,1",
 			"--preview",
-			`env thumbfile={3} w=$((FZF_PREVIEW_COLUMNS * 9 / 10)) h=$((FZF_PREVIEW_LINES * 3 / 5)) sh -c '[ -s "$thumbfile" ] && [ -f "$thumbfile" ] && chafa --size=${w}x${h} "$thumbfile" 2>/dev/null || echo "No image preview available" || echo "No thumbnail available"'; echo; echo -e "\033[33mDuration:\033[0m $(echo {4} | sed s/^\'// | sed s/\'$//)"; echo -e "\033[36mPublished:\033[0m $(echo {8} | sed s/^\'// | sed s/\'$//)"; echo -e "\033[32mAuthor:\033[0m $(echo {5} | sed s/^\'// | sed s/\'$//)"; echo -e "\033[35mViews:\033[0m $(echo {6} | sed s/^\'// | sed s/\'$//)"`,
+			`sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;37m%s\033[0m\n" "$title"; printf "\033[33mDuration:\033[0m %s\n" "$3"; printf "\033[36mPublished:\033[0m %s\n" "$4"; printf "\033[32mAuthor:\033[0m %s\n" "$5"; printf "\033[35mViews:\033[0m %s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`,
 		}
 		if filter != "" {
 			fzfArgs = append(fzfArgs, "--query="+filter)

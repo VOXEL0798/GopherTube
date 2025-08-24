@@ -271,7 +271,7 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
         os.Stdin.Read(make([]byte, 1))
         return
     }
-    fzfPreview := fmt.Sprintf(`env file={} base="%s/${file%%.*}" thumb="$base.jpg" w=$((FZF_PREVIEW_COLUMNS * 9 / 10)) h=$((FZF_PREVIEW_LINES * 3 / 5)) sh -c '[ -f "$thumb" ] && chafa --size=${w}x${h} "$thumb" 2>/dev/null || echo "No image preview available" || echo "No thumbnail available"'`, cmd.String(FlagDownloadsPath))
+    fzfPreview := fmt.Sprintf(`sh -c 'file="$1"; base="%s/${file%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;37m%s\033[0m\n" "$file"' sh {}`, cmd.String(FlagDownloadsPath))
     action := exec.Command("fzf", "--prompt=Downloads: ", "--preview", fzfPreview)
     action.Stdin = strings.NewReader(strings.Join(videoFiles, "\n"))
     out, _ := action.Output()
