@@ -45,7 +45,7 @@ func qualityToFormat(q string) string {
 
 // buildDownloadsPreview returns the fzf preview command for the downloads list.
 func buildDownloadsPreview(downloadsPath string) string {
-    const tpl = `sh -c 'file="$1"; base="%s/${file%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%s\033[0m\n" "$file"' sh {}`
+    const tpl = `sh -c 'file="$1"; base="%s/${file%%%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%%s\033[0m\n" "$file"' sh {}`
     return fmt.Sprintf(tpl, downloadsPath)
 }
 
