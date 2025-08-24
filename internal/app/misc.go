@@ -182,7 +182,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 		for i, v := range videos {
 			thumbPath := v.ThumbnailPath
 			thumbPath = strings.ReplaceAll(thumbPath, "'", "'\\''")
-			fmt.Fprintf(&input, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", i, v.Title, thumbPath, v.Duration, v.Author, v.Views, v.Description, v.Published)
+			fmt.Fprintf(&input, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", i, v.Title, thumbPath, v.Duration, v.Author, v.Views, v.Description, v.Published)
 		}
 		fzfArgs := []string{
 			"--with-nth=2..2",
@@ -193,7 +193,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 			"--border=rounded",
 			"--margin=1,1",
 			"--preview",
-			`sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;37m%s\033[0m\n" "$title"; printf "\033[33mDuration:\033[0m %s\n" "$3"; printf "\033[36mPublished:\033[0m %s\n" "$4"; printf "\033[32mAuthor:\033[0m %s\n" "$5"; printf "\033[35mViews:\033[0m %s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`,
+			`sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%s\033[0m\n" "$title"; printf "\033[33mDuration:\033[0m %s\n" "$3"; printf "\033[36mPublished:\033[0m %s\n" "$4"; printf "\033[32mAuthor:\033[0m %s\n" "$5"; printf "\033[35mViews:\033[0m %s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`,
 		}
 		if filter != "" {
 			fzfArgs = append(fzfArgs, "--query="+filter)

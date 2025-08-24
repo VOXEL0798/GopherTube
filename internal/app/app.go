@@ -40,7 +40,8 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		fmt.Println("\n\033[1;33mExiting...\033[0m")
+		fmt.Println()
+		fmt.Println("\033[1;33mExiting...\033[0m")
 		os.Exit(0)
 	}()
 

@@ -11,6 +11,54 @@ import (
     "github.com/urfave/cli/v3"
 )
 
+// ANSI color/style helpers (centralized for readability)
+const (
+    colorReset  = "\033[0m"
+    colorRed    = "\033[1;31m"
+    colorGreen  = "\033[1;32m"
+    colorYellow = "\033[1;33m"
+    colorCyan   = "\033[1;36m"
+    colorWhite  = "\033[0;37m"
+
+    barMagenta = "\033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+)
+
+// sanitizeFilename converts a video title into a filesystem-safe filename.
+func sanitizeFilename(s string) string {
+    s = strings.ReplaceAll(s, " ", "_")
+    allowed := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+    return strings.Map(func(r rune) rune {
+        if strings.ContainsRune(allowed, r) {
+            return r
+        }
+        return '_'
+    }, s)
+}
+
+// qualityToFormat maps a human-readable quality to yt-dlp/mpv format selectors.
+func qualityToFormat(q string) string {
+    switch q {
+    case "1080p":
+        return "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+    case "720p":
+        return "bestvideo[height<=720]+bestaudio/best[height<=720]"
+    case "480p":
+        return "bestvideo[height<=480]+bestaudio/best[height<=480]"
+    case "360p":
+        return "bestvideo[height<=360]+bestaudio/best[height<=360]"
+    case "Audio":
+        return "bestaudio"
+    default:
+        return "best"
+    }
+}
+
+// buildDownloadsPreview returns the fzf preview command for the downloads list.
+func buildDownloadsPreview(downloadsPath string) string {
+    const tpl = `sh -c 'file="$1"; base="%s/${file%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%s\033[0m\n" "$file"' sh {}`
+    return fmt.Sprintf(tpl, downloadsPath)
+}
+
 // MediaPlayer represents available media players
 type MediaPlayer struct {
     Name string
@@ -82,14 +130,14 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
         fmt.Println()
 
         if err != nil || len(videos) == 0 {
-            fmt.Println("    \033[1;31mNo results found.\033[0m")
+            fmt.Println("    "+colorRed+"No results found."+colorReset)
             fmt.Println()
-            fmt.Println("    \033[0;37mPress any key to search again...\033[0m")
+            fmt.Println("    "+colorWhite+"Press any key to search again..."+colorReset)
             os.Stdin.Read(make([]byte, 1))
             return
         }
 
-        fmt.Printf("    \033[1;32mFound %d results!\033[0m\n", len(videos))
+        fmt.Printf("    %sFound %d results!%s\n", colorGreen, len(videos), colorReset)
         printSearchStats(videos)
         printSearchTips()
         // Reduced delay for faster response
@@ -119,31 +167,13 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
                 outQ, _ := actionQ.Output()
                 selectedQ := strings.TrimSpace(string(outQ))
                 if selectedQ != "" {
-                    // Real download logic
-                    format := "best"
-                    switch selectedQ {
-                    case "1080p":
-                        format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-                    case "720p":
-                        format = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-                    case "480p":
-                        format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
-                    case "360p":
-                        format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
-                    case "Audio":
-                        format = "bestaudio"
-                    }
+                    // Map quality to yt-dlp format
+                    format := qualityToFormat(selectedQ)
                     os.MkdirAll(cmd.String(FlagDownloadsPath), 0755)
                     // Sanitize filename
-                    filename := strings.ReplaceAll(videos[selected].Title, " ", "_")
-                    filename = strings.Map(func(r rune) rune {
-                        if strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-", r) {
-                            return r
-                        }
-                        return '_'
-                    }, filename)
+                    filename := sanitizeFilename(videos[selected].Title)
                     outputPath := fmt.Sprintf("%s/%s.%%(ext)s", cmd.String(FlagDownloadsPath), filename)
-                    fmt.Printf("    \033[1;32mDownloading '%s' as %s...\033[0m\n", videos[selected].Title, selectedQ)
+                    fmt.Printf("    %sDownloading '%s' as %s...%s\n", colorGreen, videos[selected].Title, selectedQ, colorReset)
 
                     ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 
@@ -157,12 +187,12 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
                     actionDl.Stderr = os.Stderr
                     err := actionDl.Run()
                     if err == nil {
-                        fmt.Printf("    \033[1;32mDownload complete!\033[0m\n")
-                        fmt.Printf("    \033[0;37mSaved to: %s\033[0m\n", cmd.String(FlagDownloadsPath))
+                        fmt.Printf("    %sDownload complete!%s\n", colorGreen, colorReset)
+                        fmt.Printf("    %sSaved to: %s%s\n", colorWhite, cmd.String(FlagDownloadsPath), colorReset)
                     } else {
-                        fmt.Printf("    \033[1;31mDownload failed!\033[0m\n")
+                        fmt.Printf("    %sDownload failed!%s\n", colorRed, colorReset)
                     }
-                    fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+                    fmt.Println("    "+colorWhite+"Press any key to return..."+colorReset)
                     os.Stdin.Read(make([]byte, 1))
                 }
                 gophertubeYouTubeMode(cmd)
@@ -173,29 +203,30 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
             if choice == "Listen" {
                 player := checkAvailablePlayer()
                 if player == nil {
-                    fmt.Println("    \033[1;31mNo media player found!\033[0m")
-                    fmt.Println("    \033[0;37mPlease install MPV to play audio.\033[0m")
-                    fmt.Println("    \033[0;33mInstall MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)\033[0m")
-                    fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+                    fmt.Println("    "+colorRed+"No media player found!"+colorReset)
+                    fmt.Println("    "+colorWhite+"Please install MPV to play audio."+colorReset)
+                    fmt.Println("    "+colorYellow+"Install MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)"+colorReset)
+                    fmt.Println("    "+colorWhite+"Press any key to return..."+colorReset)
                     os.Stdin.Read(make([]byte, 1))
                     continue // Go back to the search results
                 }
 
-                fmt.Printf("    \033[1;33mPlaying Audio with %s: %s\033[0m\n", strings.ToUpper(player.Name), videos[selected].Title)
-                fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
-                fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
-                fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
-                fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
-                fmt.Println("    \033[0;33mControls: 'q' to quit, SPACE to pause/resume, ←→ to seek\033[0m")
-                fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n")
+                fmt.Printf("    %sPlaying Audio with %s: %s%s\n", colorYellow, strings.ToUpper(player.Name), videos[selected].Title, colorReset)
+                fmt.Printf("    %sChannel: %s%s\n", colorWhite, videos[selected].Author, colorReset)
+                fmt.Printf("    %sDuration: %s%s\n", colorWhite, videos[selected].Duration, colorReset)
+                fmt.Printf("    %sPublished: %s%s\n", colorCyan, videos[selected].Published, colorReset)
+                fmt.Println("    "+barMagenta)
+                fmt.Println("    "+colorYellow+"Controls: 'q' to quit, SPACE to pause/resume, ←→ to seek"+colorReset)
+                fmt.Println("    "+barMagenta)
+                fmt.Println()
 
                 // Extract direct audio stream URL
                 audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
                 streamURLBytes, err := audioCmd.Output()
                 if err != nil {
-                    fmt.Println("    \033[1;31mFailed to get direct audio URL.\033[0m")
-                    fmt.Println("    \033[0;37mMake sure yt-dlp is installed.\033[0m")
-                    fmt.Println("    \033[0;37mPress any key to return...\033[0m")
+                    fmt.Println("    "+colorRed+"Failed to get direct audio URL."+colorReset)
+                    fmt.Println("    "+colorWhite+"Make sure yt-dlp is installed."+colorReset)
+                    fmt.Println("    "+colorWhite+"Press any key to return..."+colorReset)
                     os.Stdin.Read(make([]byte, 1))
                     continue // Go back to the search results
                 }
@@ -205,18 +236,18 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
                     fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", player.Name)
                 }
 
-                fmt.Println("    \033[0;37mPress Enter to return.\033[0m")
+                fmt.Println("    "+colorWhite+"Press Enter to return."+colorReset)
                 os.Stdin.Read(make([]byte, 1))
                 continue // Return to the search results
             }
 
             // Watch as before
-            fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", videos[selected].Title)
-            fmt.Printf("    \033[0;37mChannel: %s\033[0m\n", videos[selected].Author)
-            fmt.Printf("    \033[0;37mDuration: %s\033[0m\n", videos[selected].Duration)
-            fmt.Printf("    \033[0;36mPublished: %s\033[0m\n", videos[selected].Published)
+            fmt.Printf("    %sPlaying: %s%s\n", colorYellow, videos[selected].Title, colorReset)
+            fmt.Printf("    %sChannel: %s%s\n", colorWhite, videos[selected].Author, colorReset)
+            fmt.Printf("    %sDuration: %s%s\n", colorWhite, videos[selected].Duration, colorReset)
+            fmt.Printf("    %sPublished: %s%s\n", colorCyan, videos[selected].Published, colorReset)
             fmt.Println()
-            fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+            fmt.Println("    "+barMagenta)
             fmt.Println()
             mpvPath := "mpv"
             quality := cmd.String(FlagQuality)
@@ -226,22 +257,11 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
             mpvArgs = append(mpvArgs, "--fs")
 
             if quality != "" {
-                // Map quality to ytdl-format string
-                switch quality {
-                case "1080p":
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=1080]+bestaudio/best[height<=1080]")
-                case "720p":
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=720]+bestaudio/best[height<=720]")
-                case "480p":
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=480]+bestaudio/best[height<=480]")
-                case "360p":
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"bestvideo[height<=360]+bestaudio/best[height<=360]")
-                case "Audio":
+                f := qualityToFormat(quality)
+                if f == "bestaudio" {
                     mpvArgs = append(mpvArgs, "--no-video")
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"bestaudio")
-                default:
-                    mpvArgs = append(mpvArgs, "--ytdl-format="+"best")
                 }
+                mpvArgs = append(mpvArgs, "--ytdl-format="+f)
             }
 
             mpvArgs = append(mpvArgs, videos[selected].URL)
@@ -254,8 +274,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 func gophertubeDownloadsMode(cmd *cli.Command) {
     files, err := os.ReadDir(cmd.String(FlagDownloadsPath))
     if err != nil || len(files) == 0 {
-        fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
-        fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
+        fmt.Println("    "+colorRed+"No downloaded videos found."+colorReset)
+        fmt.Println("    "+colorWhite+"Press any key to return to main menu..."+colorReset)
         os.Stdin.Read(make([]byte, 1))
         return
     }
@@ -266,12 +286,12 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
         }
     }
     if len(videoFiles) == 0 {
-        fmt.Println("    \033[1;31mNo downloaded videos found.\033[0m")
-        fmt.Println("    \033[0;37mPress any key to return to main menu...\033[0m")
+        fmt.Println("    "+colorRed+"No downloaded videos found."+colorReset)
+        fmt.Println("    "+colorWhite+"Press any key to return to main menu..."+colorReset)
         os.Stdin.Read(make([]byte, 1))
         return
     }
-    fzfPreview := fmt.Sprintf(`sh -c 'file="$1"; base="%s/${file%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;37m%s\033[0m\n" "$file"' sh {}`, cmd.String(FlagDownloadsPath))
+    fzfPreview := buildDownloadsPreview(cmd.String(FlagDownloadsPath))
     action := exec.Command("fzf", "--prompt=Downloads: ", "--preview", fzfPreview)
     action.Stdin = strings.NewReader(strings.Join(videoFiles, "\n"))
     out, _ := action.Output()
@@ -280,9 +300,9 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
         return
     }
     filePath := cmd.String(FlagDownloadsPath) + "/" + selected
-    fmt.Printf("    \033[1;33mPlaying: %s\033[0m\n", selected)
+    fmt.Printf("    %sPlaying: %s%s\n", colorYellow, selected, colorReset)
     fmt.Println()
-    fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+    fmt.Println("    "+barMagenta)
     fmt.Println()
     mpvPath := "mpv"
     exec.Command(mpvPath, filePath).Run()
