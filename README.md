@@ -14,6 +14,11 @@
 [![PRs](https://img.shields.io/github/issues-pr/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/pulls)
 [![Stars](https://img.shields.io/github/stars/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/stargazers)
 
+[![Release](https://img.shields.io/github/v/release/KrishnaSSH/GopherTube?display_name=tag&sort=semver&style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/releases)
+[![Downloads](https://img.shields.io/github/downloads/KrishnaSSH/GopherTube/total?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/KrishnaSSH/GopherTube?style=for-the-badge)](https://goreportcard.com/report/github.com/KrishnaSSH/GopherTube)
+[![AUR](https://img.shields.io/aur/version/gophertube?style=for-the-badge&label=AUR)](https://aur.archlinux.org/packages/gophertube)
+
 <!-- Discord Button -->
 <p align="left">
   <a href="https://discord.gg/TqYvzbGJzb" target="_blank">
@@ -25,6 +30,26 @@ A simple terminal YouTube client for searching and watching videos using [yt-dlp
 
 
 ---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Who is this Project for?](#who-is-this-project-for)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+  - [Quick Install](#installation)
+  - [Package Managers](#package-managers)
+  - [Manual Installation](#installation)
+- [Usage](#usage)
+  - [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Configuration](#configuration)
+  - [Configuration Options](#configuration-options)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Roadmap](#roadmap)
+- [Star History](#star-history)
+- [Contributing](#contributing)
 
 ## Overview
 
@@ -38,7 +63,7 @@ GopherTube is a terminal-based YouTube client. It scrapes and parses the youtube
 </p>
 
 **Demo Video**  
-Watch the demo video [here](https://github.com/KrishnaSSH/GopherTube/raw/refs/heads/main/.assets/demo.mp41)
+Watch the demo video [here](https://github.com/KrishnaSSH/GopherTube/raw/refs/heads/main/.assets/demo.mp4)
 
 
 ## Features
@@ -90,6 +115,17 @@ yay -S gophertube yt-dlp
 curl -sSL https://raw.githubusercontent.com/KrishnaSSH/GopherTube/main/install.sh | bash
 ```
 
+### Package Managers
+
+```bash
+# Arch Linux (AUR)
+yay -S gophertube
+
+# macOS (Homebrew) - coming soon
+# brew tap KrishnaSSH/tap
+# brew install gophertube
+```
+
 **Manual Installation:**
 ```bash
 git clone https://github.com/KrishnaSSH/GopherTube.git
@@ -129,7 +165,35 @@ quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p, 
 downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
 ```
 
+### Configuration Options
+
+| Key             | Type   | Default                                   | Description                                  |
+|------------------|--------|-------------------------------------------|----------------------------------------------|
+| search_limit     | int    | 30                                        | Max results to fetch per page/load more.     |
+| quality          | string | "1080p"                                   | Preferred quality or `Audio` for audio-only. |
+| downloads_path   | string | "$HOME/Videos/GopherTube"                | Directory to save downloads.                 |
+
 ---
+
+## Troubleshooting
+
+- __fzf not found__: install fzf (see Prerequisites) and ensure it’s in PATH.
+- __mpv not launching__: verify mpv is installed and accessible from terminal.
+- __No thumbnails__: ensure `chafa` is installed; some terminals may not support images.
+- __yt-dlp errors__: update yt-dlp to the latest version.
+
+## FAQ
+
+- __Does this use the YouTube API?__ No, it scrapes the website. No API key required.
+- __Can I play audio only?__ Yes. Choose "Listen" or set quality to `Audio`.
+- __Where are files downloaded?__ See `downloads_path` in config.
+
+## Roadmap
+
+- Configurable keybindings
+- Optional inline player controls
+- Windows support (best effort)
+- CI and release artifacts for more platforms
 
 ## Star History
 
