@@ -57,13 +57,6 @@ func printBanner() {
 	fmt.Println()
 }
 
-func printSearchPrompt(query string) {
-	fmt.Print("\033[2K\r")
-	fmt.Print("    \033[1;32m>\033[0m ")
-	fmt.Print("\033[1;37m" + query + "\033[0m")
-	fmt.Print("\033[1;30m█\033[0m")
-}
-
 func printProgressBar(current, total int) {
 	width := 40
 	filled := (current * width) / total
