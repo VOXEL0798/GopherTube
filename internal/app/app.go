@@ -47,17 +47,35 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 
 	for {
 		mainMenu := []string{"Search YouTube", "Search Downloads"}
-		action := exec.Command("fzf", "--prompt=Select mode: ")
+
+		// Check if fzf is installed
+		path, err := exec.LookPath("fzf")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "fzf not found. Please install fzf and ensure it is on PATH.")
+			return nil
+		}
+		var choice string
+		action := exec.CommandContext(ctx, path, "--prompt=Select mode: ")
 		action.Stdin = strings.NewReader(strings.Join(mainMenu, "\n"))
-		out, _ := action.Output()
-		choice := strings.TrimSpace(string(out))
+		out, err := action.Output()
+		if err != nil {
+			// ESC/cancel or fzf error: exit app
+			return nil
+		}
+		choice = strings.TrimSpace(string(out))
+		if choice == "" {
+			// Empty selection (e.g., ESC): exit app
+			return nil
+		}
+
 		switch choice {
 		case "Search YouTube":
 			gophertubeYouTubeMode(cmd)
 		case "Search Downloads":
 			gophertubeDownloadsMode(cmd)
 		default:
-			return nil
+			// Unknown/empty selection: continue loop and ask again
+			continue
 		}
 	}
 }

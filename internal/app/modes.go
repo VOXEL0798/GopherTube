@@ -5,6 +5,7 @@ import (
     "gophertube/internal/services"
     "os"
     "os/exec"
+    "path/filepath"
     "strings"
     "time"
 
@@ -41,6 +42,32 @@ func qualityToFormat(q string) string {
     default:
         return "best"
     }
+}
+
+// hasFFmpeg checks if ffmpeg is available for merging video/audio.
+func hasFFmpeg() bool {
+    _, err := exec.LookPath("ffmpeg")
+    return err == nil
+}
+
+// expandPath expands env vars like $HOME and user home shorthand ~.
+func expandPath(p string) string {
+    if p == "" {
+        return p
+    }
+    // Expand $VAR
+    p = os.ExpandEnv(p)
+    // Expand ~
+    if strings.HasPrefix(p, "~") {
+        if home, err := os.UserHomeDir(); err == nil {
+            if p == "~" {
+                p = home
+            } else if strings.HasPrefix(p, "~/") {
+                p = filepath.Join(home, p[2:])
+            }
+        }
+    }
+    return p
 }
 
 // buildDownloadsPreview returns the fzf preview command for the downloads list.
@@ -147,46 +174,62 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
             menu := []string{"Watch", "Download", "Listen"}
             action := exec.Command("fzf", "--prompt=Action: ")
             action.Stdin = strings.NewReader(strings.Join(menu, "\n"))
-            out, _ := action.Output()
+            out, errAct := action.Output()
             choice := strings.TrimSpace(string(out))
+            if errAct != nil || choice == "" {
+                // ESC/cancel -> back to results list
+                continue
+            }
 
             if choice == "Download" {
                 qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
                 actionQ := exec.Command("fzf", "--prompt=Quality: ")
                 actionQ.Stdin = strings.NewReader(strings.Join(qualities, "\n"))
-                outQ, _ := actionQ.Output()
+                outQ, errQ := actionQ.Output()
                 selectedQ := strings.TrimSpace(string(outQ))
-                if selectedQ != "" {
-                    // Map quality to yt-dlp format
-                    format := qualityToFormat(selectedQ)
-                    os.MkdirAll(cmd.String(FlagDownloadsPath), 0755)
-                    // Sanitize filename
-                    filename := sanitizeFilename(videos[selected].Title)
-                    outputPath := fmt.Sprintf("%s/%s.%%(ext)s", cmd.String(FlagDownloadsPath), filename)
-                    fmt.Printf("    %sDownloading '%s' as %s...%s\n", colorGreen, videos[selected].Title, selectedQ, colorReset)
-
-                    ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
-
-                    //override the default args with an audio only version.
-                    // Note: this downlads it as a .webm, then converts it to a .opus file.
-                    if format == "bestaudio" {
-                        ytDlpArgs = []string{"-x", "-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
-                    }
-                    actionDl := exec.Command("yt-dlp", ytDlpArgs...)
-                    actionDl.Stdout = os.Stdout
-                    actionDl.Stderr = os.Stderr
-                    err := actionDl.Run()
-                    if err == nil {
-                        fmt.Printf("    %sDownload complete!%s\n", colorGreen, colorReset)
-                        fmt.Printf("    %sSaved to: %s%s\n", colorWhite, cmd.String(FlagDownloadsPath), colorReset)
-                    } else {
-                        fmt.Printf("    %sDownload failed!%s\n", colorRed, colorReset)
-                    }
-                    fmt.Println("    "+colorWhite+"Press any key to return..."+colorReset)
-                    os.Stdin.Read(make([]byte, 1))
+                if errQ != nil || selectedQ == "" {
+                    // ESC/cancel -> back to results list
+                    continue
                 }
-                gophertubeYouTubeMode(cmd)
-                return
+
+                // Map quality to yt-dlp format
+                format := qualityToFormat(selectedQ)
+                dlPath := expandPath(cmd.String(FlagDownloadsPath))
+                os.MkdirAll(dlPath, 0755)
+                // Sanitize filename
+                filename := sanitizeFilename(videos[selected].Title)
+                outputPath := fmt.Sprintf("%s/%s.%%(ext)s", dlPath, filename)
+                fmt.Printf("    %sDownloading '%s' as %s...%s\n", colorGreen, videos[selected].Title, selectedQ, colorReset)
+
+                ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
+
+                // override the default args with an audio only version.
+                // Note: this downloads it as a .webm, then converts it to a .opus file.
+                if format == "bestaudio" {
+                    ytDlpArgs = []string{"-x", "-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
+                } else {
+                    // For video+audio, ensure merge to mp4 when possible
+                    // Warn if ffmpeg is missing (yt-dlp needs it to merge)
+                    if !hasFFmpeg() {
+                        fmt.Println("    "+colorYellow+"Warning: ffmpeg not found. Install ffmpeg to merge video+audio properly."+colorReset)
+                        fmt.Println("    "+colorWhite+"On Ubuntu: sudo apt install ffmpeg | macOS: brew install ffmpeg | Arch: pacman -S ffmpeg"+colorReset)
+                    }
+                    ytDlpArgs = append([]string{"-f", format}, append([]string{"-o", outputPath, "--merge-output-format", "mp4", "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg"}, videos[selected].URL)...) 
+                }
+                actionDl := exec.Command("yt-dlp", ytDlpArgs...)
+                actionDl.Stdout = os.Stdout
+                actionDl.Stderr = os.Stderr
+                err := actionDl.Run()
+                if err == nil {
+                    fmt.Printf("    %sDownload complete!%s\n", colorGreen, colorReset)
+                    fmt.Printf("    %sSaved to: %s%s\n", colorWhite, dlPath, colorReset)
+                } else {
+                    fmt.Printf("    %sDownload failed!%s\n", colorRed, colorReset)
+                }
+                fmt.Println("    "+colorWhite+"Press any key to return..."+colorReset)
+                os.Stdin.Read(make([]byte, 1))
+                // After handling download, return to results list
+                continue
             }
 
             // New Audio playback logic
@@ -262,26 +305,25 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 }
 
 func gophertubeDownloadsMode(cmd *cli.Command) {
-    files, err := os.ReadDir(cmd.String(FlagDownloadsPath))
+    dlPath := expandPath(cmd.String(FlagDownloadsPath))
+    files, err := os.ReadDir(dlPath)
     if err != nil || len(files) == 0 {
         fmt.Println("    "+colorRed+"No downloaded videos found."+colorReset)
-        fmt.Println("    "+colorWhite+"Press any key to return to main menu..."+colorReset)
-        os.Stdin.Read(make([]byte, 1))
+        time.Sleep(600 * time.Millisecond)
         return
     }
     var videoFiles []string
     for _, f := range files {
-        if !f.IsDir() && (strings.HasSuffix(f.Name(), ".mp4") || strings.HasSuffix(f.Name(), ".mkv") || strings.HasSuffix(f.Name(), ".webm") || strings.HasSuffix(f.Name(), ".avi")) {
+        if !f.IsDir() && (strings.HasSuffix(f.Name(), ".mp4") || strings.HasSuffix(f.Name(), ".mkv") || strings.HasSuffix(f.Name(), ".webm") || strings.HasSuffix(f.Name(), ".avi") || strings.HasSuffix(f.Name(), ".m4a") || strings.HasSuffix(f.Name(), ".mp3") || strings.HasSuffix(f.Name(), ".opus")) {
             videoFiles = append(videoFiles, f.Name())
         }
     }
     if len(videoFiles) == 0 {
         fmt.Println("    "+colorRed+"No downloaded videos found."+colorReset)
-        fmt.Println("    "+colorWhite+"Press any key to return to main menu..."+colorReset)
-        os.Stdin.Read(make([]byte, 1))
+        time.Sleep(600 * time.Millisecond)
         return
     }
-    fzfPreview := buildDownloadsPreview(cmd.String(FlagDownloadsPath))
+    fzfPreview := buildDownloadsPreview(dlPath)
     action := exec.Command("fzf", "--ansi", "--preview-window=wrap", "--prompt=Downloads: ", "--preview", fzfPreview)
     action.Stdin = strings.NewReader(strings.Join(videoFiles, "\n"))
     out, _ := action.Output()
@@ -289,7 +331,7 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
     if selected == "" {
         return
     }
-    filePath := cmd.String(FlagDownloadsPath) + "/" + selected
+    filePath := filepath.Join(dlPath, selected)
     fmt.Printf("    %sPlaying: %s%s\n", colorYellow, selected, colorReset)
     fmt.Println()
     fmt.Println("    "+barMagenta)
