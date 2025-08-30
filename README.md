@@ -102,8 +102,8 @@ pip install -U yt-dlp
 # macOS
 brew install mpv fzf chafa yt-dlp
 
-# Arch Linux (recommended)
-yay -S gophertube yt-dlp
+# Arch Linux (Aur is having shasum issues install it from the script)
+yay -S gophertube yt-dlp 
 ```
 
 ---
